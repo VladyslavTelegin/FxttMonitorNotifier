@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2026
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FxttMonitorNotifier.Android", "FxttMonitorNotifier\FxttMonitorNotifier.Android\FxttMonitorNotifier.Android.csproj", "{0F551C15-75A6-4500-B52C-174E955A97E2}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "FxttMonitorNotifier", "FxttMonitorNotifier\FxttMonitorNotifier\FxttMonitorNotifier.shproj", "{73B67C32-3E14-4DD4-8A31-C6094365D213}"
+EndProject
+Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		FxttMonitorNotifier\FxttMonitorNotifier\FxttMonitorNotifier.projitems*{0f551c15-75a6-4500-b52c-174e955a97e2}*SharedItemsImports = 4
+		FxttMonitorNotifier\FxttMonitorNotifier\FxttMonitorNotifier.projitems*{73b67c32-3e14-4dd4-8a31-c6094365d213}*SharedItemsImports = 13
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0F551C15-75A6-4500-B52C-174E955A97E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F551C15-75A6-4500-B52C-174E955A97E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F551C15-75A6-4500-B52C-174E955A97E2}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{0F551C15-75A6-4500-B52C-174E955A97E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F551C15-75A6-4500-B52C-174E955A97E2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F551C15-75A6-4500-B52C-174E955A97E2}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D0464495-0E7B-469F-A2DA-33B38A5E27A0}
+	EndGlobalSection
+EndGlobal

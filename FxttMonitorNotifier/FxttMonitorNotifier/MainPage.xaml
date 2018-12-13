@@ -1,0 +1,509 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:FxttMonitorNotifier.Droid.ValueConverters"
+             x:Class="FxttMonitorNotifier.MainPage">
+
+    <ContentPage.Resources>
+
+        <converters:BoolInversionConverter x:Key="BoolInversionConverter" />
+        <converters:MessageStateToBackgroundColorConverter x:Key="MessageStateToBackgroundColorConverter" />
+        <converters:MessageStateToSingleLetterConverter x:Key="MessageStateToSingleLetterConverter" />
+        <converters:MessagePriorityToColorConverter x:Key="MessagePriorityToColorConverter" />
+        <converters:NullToBoolInversionConverter x:Key="NullToBoolInversionConverter" />
+
+        <Style x:Key="CellLabelStyle" TargetType="Label">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="TextColor" Value="White" />
+            <Setter Property="Margin" Value="4" />
+        </Style>
+
+    </ContentPage.Resources>
+
+    <Grid x:Name="MainGrid" BackgroundColor="Black">
+
+        <Grid x:Name="MessagesGrid"
+              IsVisible="{Binding IsMessagesGridVisible}">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="50" />
+            </Grid.RowDefinitions>
+
+            <Grid BackgroundColor="Black">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Label FontSize="24"
+                       Margin="6,4,0,0" 
+                       TextColor="White"
+                       Text="Notifications"
+                       FontAttributes="Bold" />
+
+                <Label Grid.Column="1"
+                       FontSize="12"
+                       Margin="2,4,0,0"
+                       TextColor="#F27A0A"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Start"
+                       HorizontalTextAlignment="Start"
+                       Text="{Binding TotalMessagesCountString, Mode=OneWay}" />
+
+                <StackLayout Grid.Column="2"
+                             Margin="6,4,0,0" 
+                             Orientation="Horizontal"
+                             HorizontalOptions="End"
+                             VerticalOptions="Center">
+
+                    <Label Text="DND"
+                           FontSize="16"
+                           TextColor="White"
+                           VerticalTextAlignment="Center" />
+
+                    <Switch x:Name="DndSwitch"
+                            VerticalOptions="Center"
+                            BackgroundColor="Transparent" />
+
+                </StackLayout>
+
+                <Button Grid.Column="3"
+                        x:Name="ShowOptionsButton"
+                        Text="•••"
+                        FontSize="16"
+                        TextColor="White"
+                        WidthRequest="50"
+                        BackgroundColor="Transparent"
+                        HorizontalOptions="EndAndExpand"
+                        Clicked="OnShowOptionsButtonClick" />
+            </Grid>
+
+            <Grid x:Name="FullListGrid"
+                  Grid.Row="1"
+                  Padding="0,0,0,0"
+                  BackgroundColor="Black">
+
+                <ListView x:Name="MessagesListView"
+                          HasUnevenRows="True"
+                          SeparatorColor="#8e8e8e"
+                          IsPullToRefreshEnabled="True"
+                          ItemsSource="{Binding Messages}"
+                          ItemTapped="OnMessagesListViewItemTapped"
+                          IsRefreshing="{Binding IsListViewRefreshing}"
+                          SelectedItem="{Binding SelectedMessage, Mode=OneWayToSource}"
+                          RefreshCommand="{Binding ListViewRefreshCommand, Mode=OneTime}">
+
+                    <ListView.Header>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="3*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="1" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid BackgroundColor="Transparent"
+                                  VerticalOptions="FillAndExpand"
+                                  HorizontalOptions="FillAndExpand" />
+
+                            <Label Grid.Column="1"
+                                   FontSize="18" 
+                                   Margin="0,0,0,0" 
+                                   Text="SERVER INFO"
+                                   TextColor="#0072C6"
+                                   FontAttributes="Bold" />
+
+                            <Label Grid.Column="2"
+                                   Text="DATE"
+                                   FontSize="18" 
+                                   Margin="4,0,0,0"
+                                   TextColor="#0072C6"
+                                   FontAttributes="Bold" />
+
+                            <Label Grid.Column="3"
+                                   Text="STATE"
+                                   FontSize="18" 
+                                   Margin="4,0,0,0"
+                                   TextColor="#0072C6"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="NoWrap"/>
+                        </Grid>
+                    </ListView.Header>
+
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <!--<controlExtensions:ExtendedViewCell SelectedBackgroundColor="#262525">-->
+                            <ViewCell>
+                                <StackLayout VerticalOptions="FillAndExpand"
+                                             HorizontalOptions="FillAndExpand">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="6" />
+                                            <ColumnDefinition Width="3*" />
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="1" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Grid VerticalOptions="FillAndExpand"
+                                              HorizontalOptions="FillAndExpand"
+                                              BackgroundColor="{Binding ApiMessage.Priority, Converter={StaticResource MessagePriorityToColorConverter}}" />
+
+                                        <Label Grid.Column="1" 
+                                               Margin="0,0,0,0" 
+                                               LineBreakMode="WordWrap"
+                                               Text="{Binding ApiMessage.ServerInfo}" 
+                                               Style="{StaticResource CellLabelStyle}" />
+
+                                        <Label Grid.Column="2" 
+                                               LineBreakMode="WordWrap"
+                                               Text="{Binding ApiMessage.CreatedOn}"
+                                               Style="{StaticResource CellLabelStyle}" />
+
+                                        <Label Grid.Column="3"
+                                               FontSize="16"
+                                               TextColor="White"
+                                               FontAttributes="Bold"
+                                               VerticalTextAlignment="Center"
+                                               HorizontalTextAlignment="Center"
+                                               Style="{StaticResource CellLabelStyle}"
+                                               Text="{Binding ApiMessage.State, Converter={StaticResource MessageStateToSingleLetterConverter}}"
+                                               BackgroundColor="{Binding ApiMessage.State, Converter={StaticResource MessageStateToBackgroundColorConverter}}" />
+                                    </Grid>
+
+                                    <Grid IsVisible="{Binding IsVisible}" Margin="0,-6,0,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="6" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Grid VerticalOptions="FillAndExpand"
+                                              HorizontalOptions="FillAndExpand"
+                                              BackgroundColor="{Binding ApiMessage.Priority, Converter={StaticResource MessagePriorityToColorConverter}}" />
+
+                                        <Label Grid.Column="1"
+                                               FontSize="17"
+                                               Margin="0,0,4,4"
+                                               Text="{Binding ApiMessage.Text}"
+                                               Style="{StaticResource CellLabelStyle}" />
+                                    </Grid>
+
+                                </StackLayout>
+                            <!--</controlExtensions:ExtendedViewCell>-->
+                            </ViewCell>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+
+            <Grid Grid.Row="2"
+                  BackgroundColor="#212121">
+
+                <Grid VerticalOptions="Fill"
+                      HorizontalOptions="Fill">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="AcceptMessageButton"
+                            Margin="16,4,2,4"
+                            FontSize="12"
+                            Text="Accept"
+                            BorderWidth="0"
+                            BorderRadius="3"
+                            TextColor="White"
+                            BorderColor="White"
+                            FontAttributes="Bold"
+                            BackgroundColor="#008e21"
+                            HorizontalOptions="FillAndExpand"
+                            Command="{Binding AcceptMessageCommand}"
+                            IsEnabled="{Binding SelectedItem, Source={Reference MessagesListView}, Converter={StaticResource NullToBoolInversionConverter}}" />
+
+                    <Button x:Name="RejectMessageButton"
+                            Grid.Column="1"
+                            FontSize="12"
+                            Text="Reject"
+                            BorderWidth="0"
+                            BorderRadius="3"
+                            TextColor="White"
+                            Margin="2,4,16,4"
+                            BorderColor="White"
+                            FontAttributes="Bold"
+                            BackgroundColor="#8e8e8e"
+                            HorizontalOptions="FillAndExpand"
+                            Command="{Binding RejectMessageCommand}"
+                            IsEnabled="{Binding SelectedItem, Source={Reference MessagesListView}, Converter={StaticResource NullToBoolInversionConverter}}" />
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="LoginGrid"
+              VerticalOptions="Fill"
+              BackgroundColor="Black"
+              HorizontalOptions="Fill"
+              IsVisible="{Binding IsLoginGridVisible}">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="3*" />
+            </Grid.RowDefinitions>
+
+            <StackLayout HorizontalOptions="Center"
+                         VerticalOptions="Center">
+
+                <Label FontSize="30" 
+                       TextColor="#0072C6"
+                       FontAttributes="Bold"
+                       LineBreakMode="WordWrap"
+                       VerticalOptions="Center"
+                       HorizontalOptions="Center"
+                       Text="FXTT Monitor Notifier"
+                       VerticalTextAlignment="Center"
+                       HorizontalTextAlignment="Center"/>
+
+                <Label FontSize="16"
+                       TextColor="White"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center"
+                       LineBreakMode="WordWrap"
+                       HorizontalOptions="Center"
+                       VerticalTextAlignment="Center"
+                       HorizontalTextAlignment="Center"
+                       Text="Please, provide Your credentials for authentication" />
+
+            </StackLayout>
+
+            <Grid x:Name="LoginFormGrid"
+                  Grid.Row="1"
+                  WidthRequest="250"
+                  VerticalOptions="Start"
+                  HorizontalOptions="Center"
+                  BackgroundColor="Transparent">
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Label Text="User Name"
+                       FontSize="20"
+                       TextColor="White" />
+
+                <Entry x:Name="UserNameEntry" 
+                       Grid.Row="1"
+                       TextColor="Black"
+                       Placeholder="John Doe"
+                       BackgroundColor="White"
+                       PlaceholderColor="LightGray" />
+
+                <Label Grid.Row="3"
+                       FontSize="20"
+                       Text="Password" 
+                       TextColor="White" />
+
+                <Entry x:Name="PasswordEntry"
+                       Grid.Row="4"
+                       IsPassword="True"
+                       TextColor="Black"
+                       Placeholder="••••••••"
+                       BackgroundColor="White"
+                       PlaceholderColor="LightGray" />
+
+                <Button x:Name="SubmitLoginFormButton"
+                        Grid.Row="5"
+                        Text="LOG IN"
+                        BorderWidth="0"
+                        BorderRadius="3"
+                        TextColor="White"
+                        BorderColor="White"
+                        BackgroundColor="#0072C6"
+                        Clicked="OnSubmitLoginFormButtonClicked"/>
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="ProgressRing" 
+              VerticalOptions="Fill"
+              HorizontalOptions="Fill"
+              BackgroundColor="Black"
+              IsVisible="{Binding IsActionBusy}" >
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <ActivityIndicator IsRunning="True" 
+                               HeightRequest="65"
+                               VerticalOptions="End"
+                               HorizontalOptions="Center"
+                               BackgroundColor="Transparent" 
+                               Color="White" WidthRequest="100" />
+
+            <Label Grid.Row="1"
+                   x:Name="ProgressRingText"
+                   FontSize="18"
+                   TextColor="White"
+                   Text="{Binding BusyText}"
+                   VerticalTextAlignment="Start" 
+                   HorizontalTextAlignment="Center" />
+        </Grid>
+
+        <Grid x:Name="OptionsPopupGrid" 
+              IsVisible="False"
+              VerticalOptions="FillAndExpand"
+              HorizontalOptions="FillAndExpand">
+
+            <Grid x:Name="OptionsPopupGridOverlay" 
+                  Opacity="0.8"
+                  IsVisible="True"
+                  BackgroundColor="Black"
+                  VerticalOptions="FillAndExpand"
+                  HorizontalOptions="FillAndExpand">
+
+            </Grid>
+
+            <Grid HorizontalOptions="Center"
+                  VerticalOptions="Center"
+                  WidthRequest="300">
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackLayout Margin="16">
+                   
+                    <Button x:Name="ViewLogsButton"
+                            Margin="4"
+                            FontSize="12"
+                            BorderWidth="0"
+                            BorderRadius="3"
+                            TextColor="White"
+                            Text="View Today's Logs"
+                            BorderColor="#0072C6"
+                            FontAttributes="Bold"
+                            BackgroundColor="#0072C6"
+                            Clicked="OnViewLogsButtonClick"
+                            HorizontalOptions="FillAndExpand"/>
+
+                    <Button x:Name="ClearMessagesButton"
+                            Margin="4"
+                            FontSize="12"
+                            BorderWidth="0"
+                            BorderRadius="3"
+                            TextColor="White"
+                            BorderColor="#0072C6"
+                            FontAttributes="Bold"
+                            BackgroundColor="#0072C6" 
+                            Text="Clear Notifications"
+                            HorizontalOptions="FillAndExpand" />
+
+                    <Button x:Name="LogoutButton"
+                            Margin="4"
+                            FontSize="12"
+                            Text="Log Out"
+                            BorderWidth="0"
+                            BorderRadius="3"
+                            TextColor="White"
+                            BorderColor="White"
+                            FontAttributes="Bold"
+                            BackgroundColor="DarkRed"
+                            Clicked="OnLogoutButtonClicked"
+                            HorizontalOptions="FillAndExpand" />
+
+                </StackLayout>
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="LogsPopupGrid" 
+              IsVisible="False"
+              VerticalOptions="FillAndExpand"
+              HorizontalOptions="FillAndExpand">
+
+            <Grid x:Name="LogsPopupGridOverlay" 
+                  Opacity="0.8"
+                  IsVisible="True"
+                  BackgroundColor="Black"
+                  VerticalOptions="FillAndExpand"
+                  HorizontalOptions="FillAndExpand">
+
+            </Grid>
+
+            <Grid BackgroundColor="Transparent"
+                  VerticalOptions="FillAndExpand"
+                  HorizontalOptions="FillAndExpand">
+                
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="50" />
+                </Grid.RowDefinitions>
+
+                <ScrollView Orientation="Vertical"
+                        HorizontalOptions="FillAndExpand"
+                        VerticalOptions="FillAndExpand">
+
+                    <Label x:Name="LogsTextLabel"
+                           TextColor="White"
+                           VerticalOptions="FillAndExpand"
+                           HorizontalOptions="Fill" />
+                </ScrollView>
+
+                <Button x:Name="ClearAllLogsButton"
+                        Grid.Row="1"
+                        Margin="16,4,16,4"
+                        FontSize="12"
+                        Text="Clear All Logs"
+                        BorderWidth="0"
+                        BorderRadius="3"
+                        TextColor="White"
+                        BorderColor="White"
+                        FontAttributes="Bold"
+                        BackgroundColor="DarkRed"
+                        VerticalOptions="FillAndExpand"
+                        HorizontalOptions="FillAndExpand"
+                        Clicked="OnClearAllLogsButtonClick"
+                        IsEnabled="{Binding Text, Source={Reference LogsTextLabel}, Converter={StaticResource NullToBoolInversionConverter}}" />
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="ConnectivityErrorPopup" 
+              IsVisible="False"
+              BackgroundColor="Black"
+              VerticalOptions="FillAndExpand"
+              HorizontalOptions="FillAndExpand">
+
+            <Label FontSize="18"
+                   TextColor="White"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Center" 
+                   VerticalTextAlignment="Center"
+                   HorizontalTextAlignment="Center"
+                   Text="Please, check internet connection." />
+
+        </Grid>
+    </Grid>
+</ContentPage>
