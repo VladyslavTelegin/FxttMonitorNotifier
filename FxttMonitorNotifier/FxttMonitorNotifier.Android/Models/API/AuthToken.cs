@@ -1,14 +1,14 @@
 ﻿namespace FxttMonitorNotifier.Droid.Models.Api
 {
-    using System;
-
     public class AuthToken
     {
-        public AuthToken(Guid token)
+        public AuthToken() { }
+
+        public AuthToken(string token)
         {
             this.Token = token;
         }
 
-        public Guid Token { get; set; }
+        public string Token { get; set; }
     }
 }

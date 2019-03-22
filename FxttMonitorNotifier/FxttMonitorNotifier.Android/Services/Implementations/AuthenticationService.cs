@@ -1,21 +1,54 @@
 ﻿namespace FxttMonitorNotifier.Droid.Services.Implementations
 {
-    using FxttMonitorNotifier.Droid.Extensions;
+    using global::Firebase.Iid;
+
+    using Android.App;
+    using Android.Content;
+
+    using FxttMonitorNotifier.Droid.Enums.Logging;
     using FxttMonitorNotifier.Droid.Models;
     using FxttMonitorNotifier.Droid.Models.Api;
+    using FxttMonitorNotifier.Droid.Services.Implementations.Firebase;
     using FxttMonitorNotifier.Droid.Services.ServiceDefinitions;
 
     using Newtonsoft.Json;
 
+    using Plugin.CurrentActivity;
+
     using System;
-    using System.IO;
-    using System.Threading.Tasks;
+    using System.Net;
 
-    public class AuthenticationService : IAuthenticationService
+    public class AuthenticationService :  IAuthenticationService
     {
-        private readonly Guid TestGuid = Guid.Parse("71f84a98-cdeb-41c4-ae60-6bf428f464b8");
+        #region Constants
 
-        protected string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), GlobalConstants.AuthenticationServiceConstants.AuthStateFileName);
+        private const string SharedPreferencesKey = "user_auth_data";
+
+        #endregion
+
+        #region ServiceProviders
+
+        protected IBaseServiceProvider ServiceProvider => BaseServiceProvider.Instance;
+
+        #endregion
+
+        #region PublicProperties
+
+        public AuthCredentials CurrentUser { get; private set; }
+
+        public string CurrentAuthToken { get; private set; }
+
+        #endregion
+
+        #region CrossCurrent
+
+        protected Activity Activity => CrossCurrentActivity.Current.Activity;
+
+        protected Context AppContext => this.Activity.ApplicationContext;
+
+        #endregion
+
+        #region PublicMethods
 
         public bool IsAuthenticated
         {
@@ -23,58 +56,87 @@
             {
                 var result = false;
 
-                if (File.Exists(FilePath))
+                try
                 {
-                    var fileText = File.ReadAllText(FilePath);
-
-                    if (!string.IsNullOrEmpty(fileText))
+                    if (this.ServiceProvider.SharedPreferencesProvider.Exists(SharedPreferencesKey))
                     {
                         AuthToken deserializedAuthTokenModel = null;
 
                         try
                         {
-                            deserializedAuthTokenModel = JsonConvert.DeserializeObject<AuthToken>(fileText.Base64Decode());
+                            deserializedAuthTokenModel = this.ServiceProvider.SharedPreferencesProvider.Get<AuthToken>(SharedPreferencesKey);
+                            this.CurrentAuthToken = deserializedAuthTokenModel.Token;
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
-                            /* Ignored. */
+                            this.ServiceProvider.LoggingService.Log(ex, LogType.Suppress);
                         }
 
-                        result = deserializedAuthTokenModel != null && deserializedAuthTokenModel.Token != Guid.Empty;
+                        result = !(deserializedAuthTokenModel == null || string.IsNullOrEmpty(deserializedAuthTokenModel.Token));
                     }
+                }
+                catch (Exception ex)
+                {
+                    this.ServiceProvider.LoggingService.Log(ex, LogType.Warning);
                 }
 
                 return result;
             }
         }
 
-        public async Task<AuthResult> LogIn(AuthCredentials authCredentials)
+        public AuthResult LogIn(AuthCredentials authCredentials)
         {
-            // TODO: Retreive AuthToken from server here.
+            try
+            {
+                using (var webClient = new WebClient())
+                {
+                    var response = webClient.UploadString($"{GlobalConstants.AuthenticationServiceConstants.ApiAuthUrl}?userName={authCredentials.UserName}&password={authCredentials.Password}", string.Empty);
 
-            await this.SaveAuthStateToStorageAsync(TestGuid);
+                    var authModel = JsonConvert.DeserializeObject<AuthResult>(response);
+                    if (authModel.IsSuccess)
+                    {
+                        this.ServiceProvider.SharedPreferencesProvider.Save(SharedPreferencesKey, new AuthToken(authModel.AuthToken));
 
-            return new AuthResult(IsAuthenticated);
+                        this.CurrentUser = IsAuthenticated ? authCredentials : null;
+                        this.CurrentAuthToken = authModel.AuthToken;
+
+                        FirebaseIIdService.SendRefreshedTokenToServer(FirebaseInstanceId.Instance.Token);
+
+                        return new AuthResult(IsAuthenticated);
+                    }
+                    else
+                    {
+                        this.CurrentUser = null;
+                        this.CurrentAuthToken = null;
+
+                        return new AuthResult(false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.CurrentUser = null;
+                this.CurrentAuthToken = null;
+
+                this.ServiceProvider.LoggingService.Log(ex, LogType.Error);
+            }
+            
+            return new AuthResult(false);
         }
 
         public void LogOut()
         {
-            if (File.Exists(FilePath))
+            this.CurrentUser = null;
+            this.CurrentAuthToken = null;
+
+            if (this.ServiceProvider.SharedPreferencesProvider.Exists(SharedPreferencesKey))
             {
-                File.Delete(FilePath);
+                this.ServiceProvider.SharedPreferencesProvider.Delete(SharedPreferencesKey);
             }
+
+            this.ServiceProvider.SettingsProvider.DisableDnd();
         }
 
-        private async Task SaveAuthStateToStorageAsync(Guid token)
-        {
-            using (var fileWriter = File.CreateText(FilePath))
-            {
-                var authTokenModel = new AuthToken(token);
-
-                var serializedTokenModel = JsonConvert.SerializeObject(authTokenModel);
-
-                await fileWriter.WriteLineAsync(serializedTokenModel.Base64Encode());
-            }
-        }
+        #endregion
     }
 }

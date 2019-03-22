@@ -4,6 +4,8 @@
     {
         public const string DefaultDateTimeFormat = "dd.MM.yyyy HH:mm:ss";
 
+        public const string MessageActionQuestionFormat = "Do you really want to {0} selected notification?";
+
         public static class ControlNames
         {
             #region Grids
@@ -61,8 +63,8 @@
 
         public static class MainActivityConstants
         {
-            public const string DefaultServiceRunningToastMessage = "Polling service is running...";
-            public const string DefaultServiceStoppedToastMessage = "Polling service was stopped.";
+            public const string DefaultServiceRunningToastMessage = "Notification service is running...";
+            public const string DefaultServiceStoppedToastMessage = "Notification service was stopped.";
 
             public const string SerializedMessageModelExtraKey = "Serialized_Message_Model";
 
@@ -71,11 +73,14 @@
             public const string WakeLockTag = "fxtt.monitorNotifier:wakeLock";
         }
 
-        public static class PollingServiceConstants
+        public static class FirebaseConstants
         {
-            // TODO: Change Urls after API will be ready:
-            public const string PollingSpecificUrl = "http://demo3.genie-solution.com/api/messages";
-            public const string PollingAllUrl = "http://demo3.genie-solution.com/api/messages";
+            public const string TopicId = "call_messages";
+
+            public const string PollingSpecificUrl = "http://monitor.fxtoptech.com/api/notifier/notifications/actual";
+            public const string PollingAllUrl = "http://monitor.fxtoptech.com/api/notifier/notifications/all";
+            public const string UpdateFirebaseTokenApiUrl = "http://monitor.fxtoptech.com/api/notifier/firebase/updatetoken";
+            public const string UpdateMessageStateApiUrl = "http://monitor.fxtoptech.com/api/notifier/state";
 
             public const string AcceptSpecificUrl = "";
             public const string RejectSpecificUrl = "";
@@ -91,7 +96,7 @@
             public const string SystemNotificationChannelId = "fxtt_monitor_notifier_system_channel";
 
             public const string CallsNotificationBasicChannelId = "fxtt_monitor_notifier_calls_basic_channel";
-            public const string CallsNotificationDNDChannelId = "fxtt_monitor_notifier_calls_dnd_channel";
+            public const string CallsNotificationDndChannelId = "fxtt_monitor_notifier_calls_dnd_channel";
 
             public const int ServiceRunningNotificationId = 12210;
         }
@@ -99,13 +104,15 @@
         public static class BusyTexts
         {
             public const string Authentication = "Authentication...";
-            public const string LoadingItems = "Loading Items...";
-            public const string Updating = "Updating...";
+            public const string LoadingItems = "Synchronizing Feed...";
+            public const string Updating = "Updating Feed...";
         }
 
         public static class AuthenticationServiceConstants
         {
             public const string AuthStateFileName = "auth_state.data";
+
+            public const string ApiAuthUrl = "http://monitor.fxtoptech.com/api/notifier/auth";
         }
 
         public static class SettingsProviderConstants

@@ -3,7 +3,7 @@ using Xamarin.Forms.Xaml;
 [assembly: XamlCompilation (XamlCompilationOptions.Compile)]
 namespace FxttMonitorNotifier
 {
-    using FxttMonitorNotifier.Droid.Services.Implementations.ForegroundServices;
+    using FxttMonitorNotifier.Droid.Services.Implementations.Firebase;
 
     using Xamarin.Forms;
 
@@ -18,22 +18,22 @@ namespace FxttMonitorNotifier
 
         public void UpdateUi(Droid.Models.Api.Message message)
         {
-            (MainPage as MainPage)?.UpdateUI(message);
+            (MainPage as MainPage)?.UpdateUi(message);
         }
 
         protected override void OnStart()
         {
-            PollingService.IsUiActivityVisible = true;
+            FirebaseNotificationsService.IsUiActivityVisible = true;
         }
 
         protected override void OnSleep()
         {
-            PollingService.IsUiActivityVisible = false;
+            FirebaseNotificationsService.IsUiActivityVisible = false;
         }
 
         protected override void OnResume()
         {
-            PollingService.IsUiActivityVisible = true;
+            FirebaseNotificationsService.IsUiActivityVisible = true;
         }
     }
 }

@@ -11,7 +11,22 @@
 	<uses-permission android:name="android.permission.FLASHLIGHT" />
 	<uses-permission android:name="android.permission.CAMERA" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
-	<application android:label="FXTT Monitor Notifier"></application>
+	<uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE" />
+	<application android:label="FXTT Monitor Notifier">
+    <receiver
+    android:name="com.google.firebase.iid.FirebaseInstanceIdInternalReceiver"
+    android:exported="false" />
+    <receiver
+        android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver"
+        android:exported="true"
+        android:permission="com.google.android.c2dm.permission.SEND">
+      <intent-filter>
+        <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+        <action android:name="com.google.android.c2dm.intent.REGISTRATION" />
+        <category android:name="${applicationId}" />
+      </intent-filter>
+    </receiver>
+  </application>
 	<receiver android:enabled="true" android:exported="true" android-permission="android.permission.RECEIVE_BOOT_COMPLETED" android:name="fxtt.monitornotifier.BootCompleteBroadcastReceiver">
 		<intent-filter>
 			<action android:name="android.intent.action.BOOT_COMPLETED" />

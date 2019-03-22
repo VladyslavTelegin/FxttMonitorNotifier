@@ -14,15 +14,15 @@
             {
                 Color? color = null;
 
-                if (messageState.Equals(MessageState.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
+                if (messageState.Equals(NotificationState.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     color = Color.FromRgb(0, 114, 198);
                 }
-                else if (messageState.Equals(MessageState.Accepted.ToString(), StringComparison.OrdinalIgnoreCase))
+                else if (messageState.Equals(NotificationState.Accepted.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     color = Color.FromRgb(0, 142, 33);
                 }
-                else if (messageState.Equals(MessageState.Rejected.ToString(), StringComparison.OrdinalIgnoreCase))
+                else if (messageState.Equals(NotificationState.Rejected.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     color = Color.FromRgb(142, 142, 142);
                 }

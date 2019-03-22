@@ -1,15 +1,16 @@
 ﻿namespace FxttMonitorNotifier.Droid.Models.Api
 {
-    public class AuthResult
+    public class AuthResult : BaseApiResult
     {
-        public AuthResult(bool isSucceeded, string errorMessage = null)
+        public AuthResult() : base() { }
+
+        public AuthResult(bool isSuccess, 
+                          string errorMessage = null, 
+                          string authToken = null) : base(isSuccess, errorMessage)
         {
-            this.IsSucceeded = isSucceeded;
-            this.ErrorMessage = errorMessage;
+            this.AuthToken = authToken;
         }
 
-        public bool IsSucceeded { get; }
-
-        public string ErrorMessage { get; }
+        public string AuthToken { get; set; }
     }
 }

@@ -5,10 +5,11 @@
     using Android.OS;
     using Android.Widget;
 
+    using Firebase.Iid;
+
     using FxttMonitorNotifier.Droid.Broadcasting;
     using FxttMonitorNotifier.Droid.Enums.Logging;
-
-    using FxttMonitorNotifier.Droid.Services.Implementations.ForegroundServices;
+    using FxttMonitorNotifier.Droid.Services.Implementations.Firebase;
     using FxttMonitorNotifier.Droid.Services.ServiceDefinitions;
 
     using Newtonsoft.Json;
@@ -16,17 +17,20 @@
     using Plugin.CurrentActivity;
 
     using System;
-    using System.Linq;
     using System.Net;
     using System.Threading.Tasks;
 
     using Xamarin.Forms;
 
-    using ApiModels = Models.Api;
-
-    using static Droid.Models.GlobalConstants;
     using static Android.OS.PowerManager;
     using static Android.Provider.Settings;
+    using static Droid.Models.GlobalConstants;
+
+    #region Aliases
+
+    using ApiModels = Models.Api;
+
+    #endregion
 
     [Activity(MainLauncher = true,
               Icon = "@mipmap/icon",
@@ -36,18 +40,26 @@
 
     public class MainActivity : global::Xamarin.Forms.Platform.Android.FormsAppCompatActivity
     {
+        #region PrivateFields
+
         private static bool _isPreviousNetworkStateFailed = false;
+
+        private UiNotificationBroadcastReceiver _uiNotificationBroadcastReceiver;
+
+        private static readonly global::System.Timers.Timer _networkStatusTimer = new global::System.Timers.Timer { Interval = 2500 };
+
+        private static WakeLock _wakeLock;
 
         private ILoggingService _loggingService;
         private IAuthenticationService _authenticationService;
 
-        private UiNotificationBroadcastReceiver _uiNotificationBroadcastReceiver;
+        #endregion
 
-        private static readonly global::System.Timers.Timer _networkStatusTimer = new global::System.Timers.Timer { Interval = 5000 };
-
-        private static WakeLock _wakeLock;
+        #region Constructor
 
         public MainActivity() : base() { }
+
+        #endregion
 
         #region ServicesAndProviders
 
@@ -58,7 +70,13 @@
 
         #endregion
 
+        #region PublicProperties
+
         public static App CurrentUiApp { get; private set; }
+
+        #endregion
+
+        #region Methods
 
         protected override void OnCreate(Bundle bundle)
         {
@@ -86,7 +104,7 @@
 
             if (this.Intent?.Extras?.GetBoolean(BroadcastingConstants.IsAfterBootCompleteExtraKey) == true)
             {
-               this.LoggingService.Log(BroadcastingConstants.SucceessfulLogInfo, LogType.Info);
+                this.LoggingService.Log(BroadcastingConstants.SucceessfulLogInfo, LogType.Info);
             }
 
             var serializedModel = this.Intent?.Extras?.GetString(MainActivityConstants.SerializedMessageModelExtraKey);
@@ -99,6 +117,10 @@
                 var messageModel = JsonConvert.DeserializeObject<ApiModels.Message>(serializedModel);
                 this.LoadApplication(CurrentUiApp = new App(messageModel));
             }
+#if DEBUG
+            var refreshedToken = FirebaseInstanceId.Instance.Token;
+            global::System.Diagnostics.Debug.WriteLine($"Refreshed token: {refreshedToken}");
+#endif
         }
 
         #region GlobalExceptionsHandling
@@ -126,74 +148,36 @@
 
         #endregion
 
-        #region PollingServiceActions
+        #region Actions
 
-        public void StartPollingService()
+        protected override void OnStart()
         {
-            if (!IsForegroundServiceRunning() && this.CheckInternetConnection())
-            {
-                var serviceIntent = new Intent(this, typeof(PollingService));
-
-                this.DisableBatteryOptimizationsForIntent(serviceIntent);
-
-                base.StartService(serviceIntent);
-                
-                var notificationMessage = MainActivityConstants.DefaultServiceRunningToastMessage;
-
-                this.LoggingService.Log(notificationMessage, LogType.Info);
-
-                this.ShowToast(notificationMessage);
-            }
+            base.OnStart();
+            IsStarted = false;
         }
 
-        public void StopPollingService()
+        protected override void OnStop()
         {
-            if (IsForegroundServiceRunning())
-            {
-                base.StopService(new Intent(this, typeof(PollingService)));
-
-                var notificationMessage = MainActivityConstants.DefaultServiceStoppedToastMessage;
-
-                this.LoggingService.Log(notificationMessage, LogType.Info);
-
-                this.ShowToast(notificationMessage);
-
-                _wakeLock?.Release();
-            }
+            base.OnStop();
+            IsStarted = false;
         }
 
-        private void DisableBatteryOptimizationsForIntent( Intent intent)
-        {
-            var packageName = this.ApplicationContext.PackageName;
-
-            var powerManager = (PowerManager)this.ApplicationContext.GetSystemService(PowerService);
-            if (powerManager.IsIgnoringBatteryOptimizations(packageName))
-            {
-                intent.SetAction(ActionIgnoreBatteryOptimizationSettings);
-            }
-            else
-            {
-                intent.SetAction(ActionRequestIgnoreBatteryOptimizations);
-                intent.SetData(Android.Net.Uri.Parse($"package:{packageName}"));
-            }
-        }
-
-        #endregion
+        public static bool IsStarted { get; set; }
 
         protected override void OnResume()
         {
             base.OnResume();
-
+ 
             this.CancelAllAppNotifications();
 
-            PollingService.StopRingtone();
-            PollingService.TurnFlashlightNotificationsOff();
-           
+            FirebaseNotificationsService.StopRingtone();
+            FirebaseNotificationsService.TurnFlashlightNotificationsOff();
+
             if (int.Parse(Build.VERSION.Sdk) >= 26)
             {
                 RegisterReceiver(_uiNotificationBroadcastReceiver, new IntentFilter(BroadcastingConstants.UiNotification));
             }
-            
+
             CurrentUiApp.UpdateUi(null);
         }
 
@@ -206,6 +190,10 @@
                 UnregisterReceiver(_uiNotificationBroadcastReceiver);
             }
         }
+
+        #endregion
+
+        #region UI
 
         public async void ShowToast(string message)
         {
@@ -226,24 +214,12 @@
             }
         }
 
+        #endregion
+
         private void CancelAllAppNotifications()
         {
             var notificationManager = GetSystemService(NotificationService) as NotificationManager;
             notificationManager.CancelAll();
-        }
-
-        private bool IsForegroundServiceRunning()
-        {
-            var manager = (ActivityManager)this.GetSystemService(ActivityService);
-
-#pragma warning disable CS0618
-            var runningServices = manager.GetRunningServices(int.MaxValue).Select(_ => _.Service.ClassName)
-                                                                          .ToList();
-#pragma warning restore CS0618
-
-            var isForegroundServiceRunning = runningServices.Any(_ => _.Contains(typeof(PollingService).Name));
-
-            return isForegroundServiceRunning;
         }
 
         #region NetworkStatus
@@ -252,10 +228,10 @@
         {
             _networkStatusTimer.Stop();
 
-            if (!this.CheckInternetConnection())
+            if (!CheckInternetConnection())
             {
                 _isPreviousNetworkStateFailed = true;
-                PollingService.IsNetworkAvailable = false;
+                FirebaseNotificationsService.IsNetworkAvailable = false;
                 MessagingCenter.Send(CurrentUiApp.MainPage as MainPage, MessagingCenterConstants.ConnectionRefusedKey);
             }
             else
@@ -263,7 +239,7 @@
                 if (_isPreviousNetworkStateFailed)
                 {
                     _isPreviousNetworkStateFailed = false;
-                    PollingService.IsNetworkAvailable = true;
+                    FirebaseNotificationsService.IsNetworkAvailable = true;
                     MessagingCenter.Send(CurrentUiApp.MainPage as MainPage, MessagingCenterConstants.ConnectionResumedKey);
                 }
             }
@@ -271,15 +247,15 @@
             _networkStatusTimer.Start();
         }
 
-        public bool CheckInternetConnection()
+        public static bool CheckInternetConnection()
         {
             try
             {
-                this.AwakeCpu();
+                AwakeCpu();
 
                 var pingRequest = (HttpWebRequest)WebRequest.Create(MainActivityConstants.NetworkPingUrl);
 
-                pingRequest.Timeout = 5000;
+                pingRequest.Timeout = 10000;
 
                 var pingResponse = pingRequest.GetResponse();
 
@@ -295,18 +271,40 @@
 
         #endregion
 
-        private void AwakeCpu()
+        #region Optimizations
+
+        private static void AwakeCpu()
         {
             try
             {
-                var powerManager = (PowerManager)GetSystemService(PowerService);
+                var powerManager = (PowerManager)PowerService;
                 _wakeLock = powerManager.NewWakeLock(WakeLockFlags.Partial, MainActivityConstants.WakeLockTag);
                 _wakeLock.Acquire();
             }
             catch (Exception ex)
             {
-                this.LoggingService.Log(ex, LogType.Error);
+                /* Ignored. */
             }
         }
+
+        private void DisableBatteryOptimizationsForIntent(Intent intent)
+        {
+            var packageName = this.ApplicationContext.PackageName;
+
+            var powerManager = (PowerManager)this.ApplicationContext.GetSystemService(PowerService);
+            if (powerManager.IsIgnoringBatteryOptimizations(packageName))
+            {
+                intent.SetAction(ActionIgnoreBatteryOptimizationSettings);
+            }
+            else
+            {
+                intent.SetAction(ActionRequestIgnoreBatteryOptimizations);
+                intent.SetData(Android.Net.Uri.Parse($"package:{packageName}"));
+            }
+        }
+
+        #endregion
+
+        #endregion
     }
 }  

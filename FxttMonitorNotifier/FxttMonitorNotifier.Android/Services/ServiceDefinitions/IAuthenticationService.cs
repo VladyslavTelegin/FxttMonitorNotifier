@@ -1,8 +1,6 @@
 ﻿using FxttMonitorNotifier.Droid.Models.Api;
 using FxttMonitorNotifier.Droid.Services.Implementations;
 
-using System.Threading.Tasks;
-
 using Xamarin.Forms;
 
 [assembly: Dependency(typeof(AuthenticationService))]
@@ -12,7 +10,11 @@ namespace FxttMonitorNotifier.Droid.Services.ServiceDefinitions
     {
         bool IsAuthenticated { get; }
 
-        Task<AuthResult> LogIn(AuthCredentials authCredentials);
+        AuthCredentials CurrentUser { get; }
+
+        string CurrentAuthToken { get; }
+
+        AuthResult LogIn(AuthCredentials authCredentials);
 
         void LogOut();
     }

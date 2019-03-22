@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FxttMonitorNotifier.Android
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "FxttMonitorNotifier", "FxttMonitorNotifier\FxttMonitorNotifier\FxttMonitorNotifier.shproj", "{73B67C32-3E14-4DD4-8A31-C6094365D213}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FxttMonitorNotifier.StressTest", "FxttMonitorNotifier\FxttMonitorNotifier.StressTest\FxttMonitorNotifier.StressTest.csproj", "{9EC1FD09-5F05-4FF6-A233-9429E2185386}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		FxttMonitorNotifier\FxttMonitorNotifier\FxttMonitorNotifier.projitems*{0f551c15-75a6-4500-b52c-174e955a97e2}*SharedItemsImports = 4
@@ -23,6 +25,10 @@ Global
 		{0F551C15-75A6-4500-B52C-174E955A97E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0F551C15-75A6-4500-B52C-174E955A97E2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0F551C15-75A6-4500-B52C-174E955A97E2}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{9EC1FD09-5F05-4FF6-A233-9429E2185386}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EC1FD09-5F05-4FF6-A233-9429E2185386}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EC1FD09-5F05-4FF6-A233-9429E2185386}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EC1FD09-5F05-4FF6-A233-9429E2185386}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

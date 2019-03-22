@@ -34,6 +34,7 @@ using System.Runtime.InteropServices;
 [assembly: UsesPermission(Android.Manifest.Permission.Camera)]
 [assembly: UsesPermission(Android.Manifest.Permission.DevicePower)]
 [assembly: UsesPermission(Android.Manifest.Permission.Flashlight)]
+[assembly: UsesPermission(Android.Manifest.Permission.InstantAppForegroundService)]
 [assembly: UsesPermission(Android.Manifest.Permission.Internet)]
 [assembly: UsesPermission(Android.Manifest.Permission.ReadExternalStorage)]
 [assembly: UsesPermission(Android.Manifest.Permission.Reboot)]
@@ -42,5 +43,7 @@ using System.Runtime.InteropServices;
 [assembly: UsesPermission(Android.Manifest.Permission.WriteExternalStorage)]
 [assembly: UsesPermission(Android.Manifest.Permission.Vibrate)]
 [assembly: UsesPermission(Android.Manifest.Permission.WakeLock)]
+[assembly: UsesPermission(Android.Manifest.Permission.WriteExternalStorage)]
+[assembly: UsesPermission(Android.Manifest.Permission.ReadExternalStorage)]
 
 [assembly: UsesFeature("android.hardware.camera")]

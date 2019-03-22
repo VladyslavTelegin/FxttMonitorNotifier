@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "1099415177650",
+    "firebase_url": "https://fxttmonitornotifier.firebaseio.com",
+    "project_id": "fxttmonitornotifier",
+    "storage_bucket": "fxttmonitornotifier.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1099415177650:android:a2ea7f2ae39347bb",
+        "android_client_info": {
+          "package_name": "fxtt.monitornotifier"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1099415177650-qggpvuqg6j4ucma37uvhjfn7qi22cd7p.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "fxtt.monitornotifier",
+            "certificate_hash": "cdef0d5dd7c89ee2d310ef0a77efd5cc460c62dd"
+          }
+        },
+        {
+          "client_id": "1099415177650-n17uh5ec96jj99plqq2vu44dng4jhi8f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAU8Fw86JZ-nEYkhcStMxAYptV5LB3dXZA"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1099415177650-n17uh5ec96jj99plqq2vu44dng4jhi8f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

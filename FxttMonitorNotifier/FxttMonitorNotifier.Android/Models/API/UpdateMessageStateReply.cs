@@ -4,20 +4,12 @@
 
     using System;
 
-    public class UpdateMessageStateReply
+    public class UpdateMessageStateReply : BaseApiResult
     {
-        #region SerializableProperties
-
-        public bool IsSucceeded { get; private set; } = true;
-
-        public string ErrorMessage { get; private set; }
-
-        #endregion
-
         [JsonIgnore]
         public UpdateMessageStateReply Result => this;
 
         public static UpdateMessageStateReply Error(Exception exception) => Error(exception.Message);
-        public static UpdateMessageStateReply Error(string errorMessage) => new UpdateMessageStateReply { IsSucceeded = false, ErrorMessage = errorMessage };
+        public static UpdateMessageStateReply Error(string errorMessage) => new UpdateMessageStateReply { IsSuccess = false, ErrorMessage = errorMessage };
     }
 }

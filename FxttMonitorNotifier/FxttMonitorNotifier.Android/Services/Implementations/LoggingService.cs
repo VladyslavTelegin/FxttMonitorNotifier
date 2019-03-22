@@ -1,17 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
-using FxttMonitorNotifier.Droid.Enums.Logging;
-using FxttMonitorNotifier.Droid.Services.ServiceDefinitions;
-
-using static FxttMonitorNotifier.Droid.Models.GlobalConstants;
-
-namespace FxttMonitorNotifier.Droid.Services.Implementations
+﻿namespace FxttMonitorNotifier.Droid.Services.Implementations
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+
+    using FxttMonitorNotifier.Droid.Enums.Logging;
+    using FxttMonitorNotifier.Droid.Services.ServiceDefinitions;
+
+    using static FxttMonitorNotifier.Droid.Models.GlobalConstants;
+
     public class LoggingService : ILoggingService
-   {
+    {
         private static readonly object _logWriteActionSyncLock = new object();
 
         protected string FolderPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal),

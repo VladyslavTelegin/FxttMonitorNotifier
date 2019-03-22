@@ -16,17 +16,17 @@
                 {
                     case 1:
                         {
-                            color = Color.Black;
+                            color = Color.DodgerBlue;
                         }
                         break;
                     case 2:
                         {
-                            color = Color.Yellow;
+                            color = Color.Blue;
                         }
                         break;
                     case 3:
                         {
-                            color = Color.DarkRed;
+                            color = Color.Red;
                         }
                         break;
                 }

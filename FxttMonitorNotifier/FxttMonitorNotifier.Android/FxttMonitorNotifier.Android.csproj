@@ -54,6 +54,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microcharts.Forms">
+      <Version>0.8.5-pre</Version>
+    </PackageReference>
     <PackageReference Include="Newtonsoft.Json">
       <Version>11.0.2</Version>
     </PackageReference>
@@ -63,12 +66,18 @@
     <PackageReference Include="Xamarin.Essentials">
       <Version>0.9.1-preview</Version>
     </PackageReference>
+    <PackageReference Include="Xamarin.Firebase.Messaging">
+      <Version>60.1142.1</Version>
+    </PackageReference>
     <PackageReference Include="Xamarin.Forms" Version="3.0.0.482510" />
     <PackageReference Include="Xamarin.Android.Support.Design" Version="27.0.2" />
     <PackageReference Include="Xamarin.Android.Support.v7.AppCompat" Version="27.0.2" />
     <PackageReference Include="Xamarin.Android.Support.v4" Version="27.0.2" />
     <PackageReference Include="Xamarin.Android.Support.v7.CardView" Version="27.0.2" />
     <PackageReference Include="Xamarin.Android.Support.v7.MediaRouter" Version="27.0.2" />
+    <PackageReference Include="Xamarin.GooglePlayServices.Base">
+      <Version>60.1142.1</Version>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Broadcasting\BootCompleteBroadcastReceiver.cs" />
@@ -77,41 +86,56 @@
     <Compile Include="ControlRenderers\ExtendedViewCellRenderer.cs" />
     <Compile Include="Enums\Logging\LogSourceType.cs" />
     <Compile Include="Enums\Logging\LogType.cs" />
-    <Compile Include="Enums\MessageState.cs" />
+    <Compile Include="Enums\MessageAction.cs" />
+    <Compile Include="Enums\NotificationPriority.cs" />
+    <Compile Include="Enums\NotificationState.cs" />
     <Compile Include="Enums\PollServerMode.cs" />
     <Compile Include="Extensions\Base64Extensions.cs" />
     <Compile Include="Extensions\ColorExtensions.cs" />
     <Compile Include="Extensions\ContentPageExtensions.cs" />
     <Compile Include="Extensions\LinqExtensions.cs" />
+    <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="Models\API\AuthCredentials.cs" />
     <Compile Include="Models\API\AuthResult.cs" />
     <Compile Include="Models\API\AuthToken.cs" />
+    <Compile Include="Models\API\BaseApiResult.cs" />
     <Compile Include="Models\API\Message.cs" />
+    <Compile Include="Models\API\UpdateMessageStateModel.cs" />
     <Compile Include="Models\API\UpdateMessageStateReply.cs" />
     <Compile Include="Models\GlobalConstants.cs" />
     <Compile Include="Models\UI\ObservableMessage.cs" />
     <Compile Include="Models\SettingsModel.cs" />
     <Compile Include="Resources\Resource.Designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\Implementations\PermanentCacheService.cs" />
+    <Compile Include="Services\Implementations\Firebase\FirebaseIIdService.cs" />
+    <Compile Include="Services\Implementations\Firebase\FirebaseNotificationsService.cs" />
     <Compile Include="Services\Implementations\MessagesApiProvider.cs" />
     <Compile Include="Services\Implementations\AuthenticationService.cs" />
-    <Compile Include="Services\Implementations\ForegroundServices\PollingService.cs" />
     <Compile Include="Services\Implementations\LoggingService.cs" />
+    <Compile Include="Services\Implementations\BaseServiceProvider.cs" />
     <Compile Include="Services\Implementations\SettingsProvider.cs" />
+    <Compile Include="Services\Implementations\SharedPreferencesProvider.cs" />
     <Compile Include="Services\Implementations\TransientFaultHandler.cs" />
+    <Compile Include="Services\ServiceDefinitions\IBaseServiceProvider.cs" />
+    <Compile Include="Services\ServiceDefinitions\IPermanentCacheService.cs" />
     <Compile Include="Services\ServiceDefinitions\IMessagesApiProvider.cs" />
     <Compile Include="Services\ServiceDefinitions\IAuthenticationService.cs" />
     <Compile Include="Services\ServiceDefinitions\ILoggingService.cs" />
     <Compile Include="Services\ServiceDefinitions\ISettingsProvider.cs" />
+    <Compile Include="Services\ServiceDefinitions\ISharedPreferencesProvider.cs" />
     <Compile Include="Services\ServiceDefinitions\ITransientFaultHandler.cs" />
     <Compile Include="ValueConverters\BoolInversionConverter.cs" />
+    <Compile Include="ValueConverters\MessageActionButtonsVisibilityConverter.cs" />
     <Compile Include="ValueConverters\MessagePriorityToColorConverter.cs" />
+    <Compile Include="ValueConverters\MessagePriorityToSingleLetterConverter.cs" />
     <Compile Include="ValueConverters\MessageStateToBackgroundColorConverter.cs" />
-    <Compile Include="ValueConverters\MessageStateToSingleLetterConverter.cs" />
+    <Compile Include="ValueConverters\MessageStateToDisplayStateConverter.cs" />
     <Compile Include="ValueConverters\NullToBoolInversionConverter.cs" />
   </ItemGroup>
   <ItemGroup>
+    <GoogleServicesJson Include="google-services.json" />
     <None Include="Resources\AboutResources.txt" />
     <None Include="Assets\AboutAssets.txt" />
     <None Include="Properties\AndroidManifest.xml" />

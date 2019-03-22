@@ -3,29 +3,45 @@
     using Android.App;
     using Android.Content;
 
+    using Firebase.Iid;
+
     using FxttMonitorNotifier.Droid;
+    using FxttMonitorNotifier.Droid.Enums;
     using FxttMonitorNotifier.Droid.Enums.Logging;
     using FxttMonitorNotifier.Droid.Extensions;
     using FxttMonitorNotifier.Droid.Models.Api;
     using FxttMonitorNotifier.Droid.Models.Ui;
-    using FxttMonitorNotifier.Droid.Services.Implementations.ForegroundServices;
+    using FxttMonitorNotifier.Droid.Services.Implementations;
+    using FxttMonitorNotifier.Droid.Services.Implementations.Firebase;
     using FxttMonitorNotifier.Droid.Services.ServiceDefinitions;
+
+    using Microcharts;
+    using Microcharts.Forms;
 
     using Plugin.CurrentActivity;
 
     using System;
+    using System.Collections.Generic;
     using System.Collections.ObjectModel;
     using System.Linq;
     using System.Threading.Tasks;
 
     using Xamarin.Essentials;
     using Xamarin.Forms;
-
+   
     using static Droid.Models.GlobalConstants;
+
+    #region Aliases
+
+    using Entry = Xamarin.Forms.Entry;
+
+    #endregion
 
     public partial class MainPage : ContentPage
     {
-        private static readonly object _loginSyncLock = new object();
+        #region PrivateFields
+
+        private static readonly object LoginSyncLock = new object();
 
         private string _busyText;
 
@@ -41,11 +57,14 @@
         private Command _acceptMessageCommand;
         private Command _rejectMessageCommand;
 
+        private Command _acceptMessageActionCommand;
+        private Command _cancelMessageActionCommand;
+
         private ObservableMessage _selectedMessage;
 
-        private ILoggingService _loggingService;
-        private ISettingsProvider _settingsProvider;
-        private IMessagesApiProvider _messagesApiProvider;
+        #endregion
+
+        #region Constructor
 
         public MainPage(Message message = null)
         {
@@ -57,13 +76,13 @@
 
             this.Appearing += (sender, args) => 
             {
-                PollingService.IsUiActivityVisible = true;
+                FirebaseNotificationsService.IsUiActivityVisible = true;
                 this.InitializeNetworkStatusHandlers();
             };
 
             this.Disappearing += (sender, args) =>
             {
-                PollingService.IsUiActivityVisible = false;
+                FirebaseNotificationsService.IsUiActivityVisible = false;
 
                 MessagingCenter.Unsubscribe<MainPage>(this, MessagingCenterConstants.ConnectionRefusedKey);
                 MessagingCenter.Unsubscribe<MainPage>(this, MessagingCenterConstants.ConnectionResumedKey);
@@ -71,6 +90,8 @@
 
             this.InitializeGestureRecognizers();
         }
+
+        #endregion
 
         #region CrossCurrent
 
@@ -82,13 +103,9 @@
 
         #endregion
 
-        #region ServicesAndProviders
+        #region ServiceProviders
 
-        protected ILoggingService LoggingService => _loggingService ?? (_loggingService = DependencyService.Get<ILoggingService>());
-
-        protected ISettingsProvider SettingsProvider => (_settingsProvider ?? (_settingsProvider = DependencyService.Get<ISettingsProvider>()));
-
-        protected IMessagesApiProvider MessagesApiProvider => (_messagesApiProvider ?? (_messagesApiProvider = DependencyService.Get<IMessagesApiProvider>()));
+        protected IBaseServiceProvider ServiceProvider => BaseServiceProvider.Instance;
 
         #endregion
 
@@ -159,7 +176,7 @@
         public string TotalMessagesCountString => $"({this.TotalMessagesCount})";
 
         public ObservableMessage SelectedMessage
-        {
+        { 
             get { return _selectedMessage; }
             set
             {
@@ -170,27 +187,43 @@
 
         public Command ListViewRefreshCommand => _listViewRefreshCommand ?? (_listViewRefreshCommand = new Command(RefreshListView));
 
-        public Command AcceptMessageCommand => _acceptMessageCommand ?? (_acceptMessageCommand = new Command(AcceptSelectedMessage));
-        public Command RejectMessageCommand => _rejectMessageCommand ?? (_rejectMessageCommand = new Command(RejectSelectedMessage));
+        public Command AcceptMessageCommand => _acceptMessageCommand ?? (_acceptMessageCommand = new Command(this.AcceptSelectedMessage));
+        public Command RejectMessageCommand => _rejectMessageCommand ?? (_rejectMessageCommand = new Command(this.RejectSelectedMessage));
+
+        public Command AcceptMessageActionCommand => _acceptMessageActionCommand ?? (_acceptMessageActionCommand = new Command(async () => await this.AcceptMessageAction()));
+        public Command CancelMessageActionCommand => _cancelMessageActionCommand ?? (_cancelMessageActionCommand = new Command(this.CancelMessageAction));
 
         #endregion
 
-        public void UpdateUI(Message message)
+        #region Methods
+
+        public async void UpdateUi(Message message)
         {
-            if (!ScreenLock.IsActive)
+            if (this.ServiceProvider.AuthenticationService.IsAuthenticated)
             {
-                ScreenLock.RequestActive();
-            }
+                if (message != null && message.IsSilent)
+                {
+                    var existingObservableEntry = this.Messages.FirstOrDefault(_ => _.ApiMessage.Id == message.Id);
+                    if (!(existingObservableEntry == null || existingObservableEntry.Equals(message)))
+                    {
+                        existingObservableEntry.ApiMessage = message;
+                        existingObservableEntry.AcceptedUsersCount = message.AcceptedUsersCount.ToString();
+                    }
 
-            this.ShowMessagesGrid(message, false);
+                    return;
+                }
 
-            if (message != null)
-            {
-                this.Vibrate();
+                await this.ShowMessageGridAsync(message: message, 
+                                                isUpdate: message != null);
+
+                if (message != null)
+                {
+                    this.Vibrate();
+                }
             }
         }
 
-        private void InitializeMessageGrid(Message message)
+        private async void InitializeMessageGrid(Message message)
         {
             if (!this.MainActivity.AuthenticationService.IsAuthenticated)
             {
@@ -198,16 +231,16 @@
             }
             else
             {
-                this.MainActivity?.StartPollingService();
-
-                this.ShowMessagesGrid(message);
+                await this.ShowMessageGridAsync(message);
             }
         }
 
-        private void RefreshListView()
+        private async void RefreshListView()
         {
             this.IsListViewRefreshing = true;
-            this.ShowMessagesGrid(null, false);
+
+            await this.ShowMessageGridAsync(null);
+
             this.IsListViewRefreshing = false;
         }
 
@@ -232,25 +265,41 @@
 
             #region LogsGrid
 
-            var twoTapsGestureRecogniser = new TapGestureRecognizer
+            var twoTapsGestureRecognizer_Logs = new TapGestureRecognizer
             {
                 NumberOfTapsRequired = 2,
                 Command = new Command(() =>
                 {
                     this.GetControl<Grid>(ControlNames.LogsPopupGrid).IsVisible = false;
-                    this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = true;
+                    this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = false;
+                    this.GetControl<Button>(ControlNames.ShowOptionsButton).IsVisible = true;
                 })
             };
 
+
             var logsPopupLabel = this.GetControl<Label>(ControlNames.LogsTextLabel);
-            logsPopupLabel.GestureRecognizers.Add(twoTapsGestureRecogniser);
+            logsPopupLabel.GestureRecognizers.Add(twoTapsGestureRecognizer_Logs);
+
+            var twoTapsGestureRecognizer_Statistics = new TapGestureRecognizer
+            {
+                NumberOfTapsRequired = 2,
+                Command = new Command(async () =>
+                {
+                    await this.HideChart();
+                    this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = false;
+                    this.GetControl<Button>(ControlNames.ShowOptionsButton).IsVisible = true;
+                })
+            };
+
+            var innerChartsContainer = this.GetControl<Grid>("InnerChartsContainer");
+            innerChartsContainer.GestureRecognizers.Add(twoTapsGestureRecognizer_Statistics);
 
             #endregion
         }
 
         private void Vibrate(bool isFromDndToggle = false)
         {
-            if (!this.SettingsProvider.IsDndModeEnabled)
+            if (!this.ServiceProvider.SettingsProvider.IsDndModeEnabled)
             {
                 Vibration.Vibrate(250);
             }
@@ -261,17 +310,19 @@
             }
         }
 
-        private async void ShowMessagesGrid(Message message = null, bool showCustomPreloader = true)
+        private async Task ShowMessageGridAsync(Message message = null, bool showCustomPreloader = true, bool isUpdate = false)
         {
             if (showCustomPreloader)
             {
                 this.IsMessagesGridVisible = false;
                 this.IsLoginGridVisible = false;
                 this.IsActionBusy = true;
-                this.BusyText = BusyTexts.LoadingItems;
+                this.BusyText = isUpdate ? BusyTexts.Updating : BusyTexts.LoadingItems;
 
                 await Task.Delay(500);
             }
+
+            this.Messages.Clear();
 
             await UpdateMessagesCollectionAsync();
 
@@ -281,13 +332,15 @@
 
             if (showCustomPreloader)
             {
+                await Task.Delay(250);
+
                 this.IsActionBusy = false;
                 this.IsMessagesGridVisible = true;
             }
 
             if (message != null)
             {
-                var entryToSelect = this.Messages.FirstOrDefault(_ => _.ApiMessage.Id.Equals(message.Id));
+                var entryToSelect = this.Messages.FirstOrDefault(_ => _.ApiMessage.Id == message.Id);
                 if (entryToSelect != null)
                 {
                     entryToSelect.IsVisible = true;
@@ -315,13 +368,25 @@
             }
         }
 
-        private Task UpdateMessagesCollectionAsync() => Task.Run(() => this.UpdateMessagesCollection());
-
-        private void UpdateMessagesCollection()
+        private async Task UpdateMessagesCollectionAsync()
         {
-            this.Messages.Clear();
+            if (!MainActivity.CheckInternetConnection())
+            {
+                var connectivityErrorPopup = this.GetControl<Grid>(ControlNames.ConnectivityErrorPopup);
+                if (!connectivityErrorPopup.IsVisible)
+                {
+                    connectivityErrorPopup.IsVisible = true;
+                    await connectivityErrorPopup.FadeTo(1, 100);
+                }
+            }
 
-            PollingService.CachedCallMessages.ForEach(_ => this.Messages.Add(new ObservableMessage(_)));
+            var allMessages = this.ServiceProvider.MessagesApiProvider.RetreiveSpecificMessages().ToList();
+
+            allMessages.Distinct()
+                       .ToList()
+                       .ForEach(_ => this.Messages.Add(new ObservableMessage(_)));
+
+            await Task.CompletedTask;
         }
 
         private void InitializeDndSwitch()
@@ -329,7 +394,7 @@
             var switchControl = this.GetControl<Switch>(ControlNames.DndSwitch);
 
             switchControl.Toggled -= this.OnDndSwitchToggle;
-            switchControl.IsToggled = this.SettingsProvider.IsDndModeEnabled;
+            switchControl.IsToggled = this.ServiceProvider.SettingsProvider.IsDndModeEnabled;
             switchControl.Toggled += this.OnDndSwitchToggle;
         }
 
@@ -346,28 +411,35 @@
 
         private void OnMessagesListViewItemTapped(object sender, ItemTappedEventArgs e)
         {
-            if (e.Item is ObservableMessage currentItem)
+            try
             {
-                foreach (var message in this.Messages)
+                if (e.Item is ObservableMessage currentItem)
                 {
-                    if (message != currentItem)
+                    this.Messages.ToList().ForEach(_ =>
                     {
-                        message.IsVisible = false;
+                        if (_ != currentItem)
+                            _.IsVisible = false;
+                    });
+
+                    currentItem.IsVisible ^= true;
+
+                    if (!currentItem.IsVisible)
+                    {
+                        this.GetControl<ListView>(ControlNames.MessagesListView).SelectedItem = null;
                     }
                 }
-
-                currentItem.IsVisible ^= true;
-
-                if (!currentItem.IsVisible)
-                {
-                    this.GetControl<ListView>(ControlNames.MessagesListView).SelectedItem = null;
-                }
+            }
+            catch (Exception ex)
+            {
+                this.ServiceProvider.LoggingService.Log(ex, LogType.Suppress);
             }
         }
 
         private void OnLogoutButtonClicked(object sender, EventArgs e)
         {
-            this.MainActivity.AuthenticationService.LogOut();
+            this.ServiceProvider.AuthenticationService.LogOut();
+
+            Task.Run(() => FirebaseInstanceId.Instance.DeleteInstanceId());
 
             this.IsMessagesGridVisible = false;
 
@@ -376,9 +448,7 @@
 
             this.IsLoginGridVisible = true;
 
-            MainActivity?.StopPollingService();
-
-            this.SettingsProvider.DisableDnd();
+            this.ServiceProvider.SettingsProvider.DisableDnd();
           
             this.TurnOffDndSwitch();
         }
@@ -386,6 +456,7 @@
         private async void OnSubmitLoginFormButtonClicked(object sender, EventArgs e)
         {
             this.BusyText = BusyTexts.Authentication;
+
             this.IsActionBusy = true;
             this.IsLoginGridVisible = false;
             this.IsMessagesGridVisible = false;
@@ -394,29 +465,45 @@
             var password = this.GetControl<Entry>(ControlNames.PasswordEntry).Text;
 
             var authResult = await LoginAsync(userName, password);
-            if (authResult != null && authResult.IsSucceeded)
+            if (authResult != null && authResult.IsSuccess)
             {
-                this.MainActivity?.StartPollingService();
-                this.ShowMessagesGrid(null, false);
+                await this.ShowMessageGridAsync(null, false);
 
                 this.IsActionBusy = false;
                 this.IsMessagesGridVisible = true;
+
+                this.ResetCredentialFields();
+
+                MainActivity.ShowToast("Authentication succeeded.");
             }
             else
             {
-                // TODO: Implement here.
+                this.IsActionBusy = false;
+                this.BusyText = null;
+
+                this.ResetCredentialFields();
+
+                this.IsLoginGridVisible = true;
+
+                MainActivity.ShowToast("Invalid credentials supplied. Please, try again.");
             }
+        }
+
+        private void ResetCredentialFields()
+        {
+            this.GetControl<Entry>(ControlNames.UserNameEntry).Text = null;
+            this.GetControl<Entry>(ControlNames.PasswordEntry).Text = null;
         }
 
         private Task<AuthResult> LoginAsync(string userName, string password) => Task.Run(() => Login(userName, password));
 
         private AuthResult Login(string userName, string password)
         {
-            lock (_loginSyncLock)
+            lock (LoginSyncLock)
             {
                 var authCredentials = new AuthCredentials(userName, password);
 
-                var authResult = this.MainActivity?.AuthenticationService.LogIn(authCredentials)?.Result;
+                var authResult = this.MainActivity?.AuthenticationService.LogIn(authCredentials);
 
                 return authResult;
             }
@@ -430,13 +517,13 @@
 
         private void OnDndSwitchToggle(object sender, ToggledEventArgs e)
         {
-            this.SettingsProvider.ToggleDndSettings();
+            this.ServiceProvider.SettingsProvider.ToggleDndSettings();
 
             try
             {
                 var message = string.Empty;
 
-                if (this.SettingsProvider.IsDndModeEnabled)
+                if (this.ServiceProvider.SettingsProvider.IsDndModeEnabled)
                 {
                     this.Vibrate(true);
                     message = ToastTexts.DndModeEnabled;
@@ -450,68 +537,260 @@
             }
             catch (Exception ex)
             {
-                this.LoggingService.Log(ex, LogType.Suppress);
+                this.ServiceProvider.LoggingService.Log(ex, LogType.Suppress);
             }
         }
 
         private void OnViewLogsButtonClick(object sender, EventArgs e)
         {
             this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = false;
-            this.GetControl<Label>(ControlNames.LogsTextLabel).Text = this.LoggingService.GetTodayLogs();
+            this.GetControl<Label>(ControlNames.LogsTextLabel).Text = this.ServiceProvider.LoggingService.GetTodayLogs();
             this.GetControl<Grid>(ControlNames.LogsPopupGrid).IsVisible = true;
         }
 
         private void OnClearAllLogsButtonClick(object sender, EventArgs e)
         {
-            this.LoggingService.ClearLogs();
+            this.ServiceProvider.LoggingService.ClearLogs();
 
             this.GetControl<Grid>(ControlNames.LogsPopupGrid).IsVisible = false;
             this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = true;
+        }
+
+        private async void OnViewStatisticsButtonClicked(object sender, EventArgs e)
+        {
+            this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = false;
+            await ShowChart();
+        }
+
+        private void OnClearMessagesButtonClicked(object sender, EventArgs e)
+        {
+            this.ServiceProvider.PermanentCacheService.Invalidate(MessagesApiProvider.MessagesCacheKey);
+            this.GetControl<Button>(ControlNames.ShowOptionsButton).IsVisible = true;
+            this.GetControl<Grid>(ControlNames.OptionsPopupGrid).IsVisible = false;
+            MainActivity.ShowToast("Notifications cache cleared.");
         }
 
         #endregion
 
         private void InitializeNetworkStatusHandlers()
         {
-            MessagingCenter.Subscribe<MainPage>(this, MessagingCenterConstants.ConnectionRefusedKey, (sender) => {
+            MessagingCenter.Subscribe(this, MessagingCenterConstants.ConnectionRefusedKey, (Action<MainPage>)((sender) => {
 
-                Device.BeginInvokeOnMainThread(() =>
+                Device.BeginInvokeOnMainThread(async () =>
                 {
+                    this.DisableInetBoundControls();
+
                     var connectivityErrorPopup = this.GetControl<Grid>(ControlNames.ConnectivityErrorPopup);
                     if (!connectivityErrorPopup.IsVisible)
                     {
                         connectivityErrorPopup.IsVisible = true;
+                        await connectivityErrorPopup.FadeTo(1, 100);
                     }
                 });
-            });
+            }));
 
-            MessagingCenter.Subscribe<MainPage>(this, MessagingCenterConstants.ConnectionResumedKey, (sender) => {
+            MessagingCenter.Subscribe(this, MessagingCenterConstants.ConnectionResumedKey, (Action<MainPage>)((sender) => {
 
-                Device.BeginInvokeOnMainThread(() => {
+                Device.BeginInvokeOnMainThread(async () => {
+
+                    this.EnableInetBoundControls();
 
                     var connectivityErrorPopup = this.GetControl<Grid>(ControlNames.ConnectivityErrorPopup);
                     if (connectivityErrorPopup.IsVisible)
                     {
+                        await connectivityErrorPopup.FadeTo(0, 100);
                         connectivityErrorPopup.IsVisible = false;
+
+                        if (this.ServiceProvider.AuthenticationService.IsAuthenticated)
+                        {
+                            await this.ShowMessageGridAsync(showCustomPreloader: true);
+                        }
                     }
                 });
-            });
+            }));
+        }
+
+        public void DisableInetBoundControls()
+        {
+            this.GetControl<Button>("RejectMessageButton").IsEnabled =
+            this.GetControl<Button>("AcceptMessageButton").IsEnabled =
+            this.GetControl<Button>("SubmitLoginFormButton").IsEnabled = 
+            this.GetControl<Entry>("UserNameEntry").IsEnabled =
+            this.GetControl<Entry>("PasswordEntry").IsEnabled = false;
+        }
+
+        public void EnableInetBoundControls()
+        {
+           this.GetControl<Button>("RejectMessageButton").IsEnabled =
+           this.GetControl<Button>("AcceptMessageButton").IsEnabled =
+           this.GetControl<Button>("SubmitLoginFormButton").IsEnabled =
+           this.GetControl<Entry>("UserNameEntry").IsEnabled =
+           this.GetControl<Entry>("PasswordEntry").IsEnabled = true;
         }
 
         #region UpdateMessageStateActions
 
+        private MessageAction? _messageAction;
+
         private async void AcceptSelectedMessage()
         {
-            await this.MessagesApiProvider.AcceptMessageAsync(this.SelectedMessage?.ApiMessage);
+            Vibration.Vibrate(25);
+
+            _messageAction = MessageAction.Acception;
+
+            this.GetControl<Label>("CurrentActionText").Text = string.Format(MessageActionQuestionFormat, "accept");
+            this.GetControl<Label>("ActionNameAliasText").Text = _messageAction.ToString();
+
+            this.GetControl<Label>("ActionNameAliasText").BackgroundColor = Color.FromRgb(0, 142, 33);
+
+            this.GetControl<Grid>("MessageActionConfirmationDialog").IsVisible = true;
+            await this.GetControl<Grid>("MessageActionConfirmationDialog").FadeTo(1, 250);
         }
 
         private async void RejectSelectedMessage()
         {
-            await this.MessagesApiProvider.RejectMessageAsync(this.SelectedMessage?.ApiMessage);
+            Vibration.Vibrate(25);
+
+            _messageAction = MessageAction.Rejection;
+
+            this.GetControl<Label>("CurrentActionText").Text = string.Format(MessageActionQuestionFormat, "reject");
+            this.GetControl<Label>("ActionNameAliasText").Text = _messageAction.ToString();
+
+            this.GetControl<Label>("ActionNameAliasText").BackgroundColor = Color.FromRgb(142, 142, 142);
+
+            this.GetControl<Grid>("MessageActionConfirmationDialog").IsVisible = true;
+            await this.GetControl<Grid>("MessageActionConfirmationDialog").FadeTo(1, 250);
+        }
+
+        private async Task AcceptMessageAction()
+        {
+            var selectedMessageId = this.SelectedMessage.ApiMessage.Id;
+
+            if (_messageAction.HasValue)
+            {
+                var successToastText = 
+                    $"Selected notification successfully {(_messageAction.Value == MessageAction.Acception ? "accepted" : "rejected")}.";
+
+                if (_messageAction.Value == MessageAction.Acception)
+                {
+                    var acceptionResult = await this.ServiceProvider.MessagesApiProvider.AcceptMessageAsync(this.SelectedMessage?.ApiMessage);
+                    if (acceptionResult.IsSuccess)
+                    {
+                        this.CancelMessageAction();
+
+                        var messageCandidate = this.Messages.FirstOrDefault(_ => _.ApiMessage.Id == selectedMessageId).ApiMessage;
+
+                        await this.ShowMessageGridAsync(message: messageCandidate, isUpdate: true);
+
+                        await Task.Delay(500);
+
+                        this.MainActivity.ShowToast(successToastText);
+                    }
+                    else
+                    {
+                        this.CancelMessageAction();
+                        this.MainActivity.ShowToast(acceptionResult.ErrorMessage);
+                    }
+                }
+                else
+                {
+                    var rejectionResult = await this.ServiceProvider.MessagesApiProvider.RejectMessageAsync(this.SelectedMessage?.ApiMessage);
+                    if (rejectionResult.IsSuccess)
+                    {
+                        this.CancelMessageAction();
+
+                        var messageCandidate = this.Messages.FirstOrDefault(_ => _.ApiMessage.Id == selectedMessageId).ApiMessage;
+
+                        await this.ShowMessageGridAsync(message: messageCandidate, isUpdate: true);
+
+                        await Task.Delay(500);
+
+                        this.MainActivity.ShowToast(successToastText);
+                    }
+                    else
+                    {
+                        this.CancelMessageAction();
+                        this.MainActivity.ShowToast(rejectionResult.ErrorMessage);
+                    }
+                }
+            }
+        }
+
+        private async void CancelMessageAction()
+        {
+            await this.GetControl<Grid>("MessageActionConfirmationDialog").FadeTo(0, 250);
+            this.GetControl<Grid>("MessageActionConfirmationDialog").IsVisible = false;
+
+            this.GetControl<Label>("CurrentActionText").Text = null;
+
+            _messageAction = null;
         }
 
         #endregion
 
         private void InitializeBindingContext() => this.BindingContext = this;
+
+        #endregion
+
+        #region Charts
+
+        public async Task ShowChart()
+        {
+            var chartView = this.GetControl<ChartView>("MessagesStatisticsChart");
+
+            var lastMonthDate = DateTime.UtcNow.AddMonths(-1);
+
+            var allMessages = this.ServiceProvider.MessagesApiProvider.RetreiveAllMesages()
+                                                                      .Where(_ => _.CreatedOn >= lastMonthDate)
+                                                                      .ToList();
+
+            var lowCount = allMessages.Count(_ => _.Priority == (int)Droid.Enums.NotificationPriority.Low);
+            var mediumCount = allMessages.Count(_ => _.Priority == (int)Droid.Enums.NotificationPriority.Medium);
+            var highCount = allMessages.Count(_ => _.Priority == (int)Droid.Enums.NotificationPriority.High);
+
+            var chartEntries = new List<ChartEntry>
+            {
+                new ChartEntry(lowCount)
+                {
+                    Color = SkiaSharp.SKColor.Parse("FF1E90FF"),
+                    Label = "L",
+                    ValueLabel = lowCount.ToString()
+                },
+                new ChartEntry(mediumCount)
+                {
+                    Color = SkiaSharp.SKColor.Parse("0000FF"),
+                    Label = "M",
+                    ValueLabel = mediumCount.ToString()
+                },
+                new ChartEntry(highCount)
+                {
+                    Color = SkiaSharp.SKColor.Parse("FF8B0000"),
+                    Label = "H",
+                    ValueLabel = highCount.ToString()
+                }
+            };
+
+            chartView.Chart = new RadarChart
+            {
+                Entries = chartEntries,
+                LabelTextSize = 52,
+                PointSize = 10,
+                LineSize = 10,
+                BackgroundColor = SkiaSharp.SKColor.FromHsl(0, 0, 0, 0)
+            };
+
+            this.GetControl<Grid>("ChartContainer").IsVisible = true;
+
+            await Task.CompletedTask;
+        }
+
+        public async Task HideChart()
+        {
+            this.GetControl<Grid>("ChartContainer").IsVisible = false;
+
+            await Task.CompletedTask;
+        }
+
+        #endregion
     }
 }
